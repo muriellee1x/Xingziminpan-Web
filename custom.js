@@ -131,3 +131,20 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log("DOM Content Loaded - executing includeHTML");
   includeHTML();
 });
+
+// 汉堡菜单切换
+document.getElementById('menu-btn').addEventListener('click', function() {
+  const mobileMenu = document.getElementById('mobile-menu');
+  mobileMenu.classList.toggle('hidden');
+});
+
+// 获取所有移动端菜单中的链接
+const mobileMenuLinks = document.querySelectorAll('#mobile-menu a');
+
+// 为每个链接添加点击事件监听器
+mobileMenuLinks.forEach(link => {
+  link.addEventListener('click', () => {
+    // 点击后隐藏菜单
+    document.getElementById('mobile-menu').classList.add('hidden');
+  });
+});
