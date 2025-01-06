@@ -11,13 +11,19 @@
       href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
       rel="stylesheet"
     />
+    <style>
+      html, body {
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+    </style>
   </head>
   <body>
     <!-- header -->
     <div id="header">
       <div>
         <!-- 移动端菜单按钮 -->
-        <div class="md:hidden absolute top-8 left-6">
+        <div class="md:hidden absolute top-8 left-8">
           <button id="menu-btn" class="text-black">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -59,13 +65,14 @@
           <img
             id="bio-image"
             class="max-w-none relative"
-            src="images/portraits/Xingziminpan.png"
+            src="images/portraits/Xingziminpan.webp"
             alt="潘行紫旻"
+            onload="adjustImageHeight(); scrollBioImage();"
           />
-          <div class="absolute left-6 bottom-4 font-['Crimson_Pro'] font-light text-white/75 text-xs text-left tracking-wide">
+          <div class="absolute left-6 bottom-4 font-['Crimson_Pro'] font-light text-white/75 text-xs text-left tracking-wide hidden md:block">
             Photo Credit: Sarah Galli Photography 2015
           </div>
-          <div id="image-arrow" class="absolute bottom-8 left-1/2">
+          <div id="image-arrow" class="absolute bottom-8 left-1/2 hover:translate-y-2 transition-all duration-300">
             <a href="#bio-text-box"><img src="images/portraits/SVG/arrow.svg" class="h-6" alt="arrow"/></a>
           </div>
         </div>
