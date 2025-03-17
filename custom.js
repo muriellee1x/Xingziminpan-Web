@@ -10,15 +10,15 @@ function adjustImageHeight() {
   const imageTopOffset = imageWrapper.getBoundingClientRect().top + document.documentElement.scrollTop;
   imageWrapper.style.width = "100%";
   const imageWrapperHeight = viewportHeight - imageTopOffset;
-  // log imageWrapperHeight, viewportHeight, imageTopOffset
-  console.log(viewportHeight, imageWrapperHeight, viewportHeight, imageTopOffset);
+
   imageWrapper.style.height = imageWrapperHeight + 'px';
   if (viewportWidth > maxImageWidth) {
     image.style.width = "100%";
     image.style.top = -imageTop + "px";
   } else {
     image.style.width = maxImageWidth + "px";
-    const left = Math.floor((maxImageWidth - viewportWidth) / 2);
+    const delta = maxImageWidth - viewportWidth;
+    const left = Math.floor(delta * 0.6);
     image.style.left = -left + "px";
     image.style.top = -imageTop + "px";
   }
@@ -33,101 +33,6 @@ function scrollBioImage() {
     image.style.top = Math.min(-imageTop + Math.floor(scrollTop / 3), imageTop) + "px";
   }
 }
-
-// class ParallaxImage {
-//   constructor(options = {}) {
-//     this.imageId = options.imageId || 'bio-image';
-//     this.wrapperId = options.wrapperId || 'bio-image-wrapper';
-//     this.navId = options.navId || 'nav';
-//     this.maxImageWidth = options.maxImageWidth || 1200;
-//     this.maxImageHeight = options.maxImageHeight || 800;
-//     this.imageTop = options.imageTop || 0;
-//     this.parallaxSpeed = options.parallaxSpeed || 0.3;
-//     this.aspectRatio = options.aspectRatio || 0.5625; // 16:9 = 9/16 = 0.5625
-    
-//     this.debouncedAdjust = this.debounce(this.adjustImageHeight.bind(this), 150);
-//     this.ticking = false;
-    
-//     this.init();
-//   }
-  
-//   adjustImageHeight() {
-//     const viewportHeight = window.innerHeight;
-//     const viewportWidth = window.innerWidth;
-//     const imageTopOffset = this.nav.getBoundingClientRect().bottom;
-    
-//     this.wrapper.style.width = '100%';
-    
-//     // 计算容器高度：基于容器宽度和设定的宽高比
-//     const wrapperWidth = this.wrapper.offsetWidth;
-//     const calculatedHeight = Math.floor(wrapperWidth * this.aspectRatio);
-    
-//     // 设置容器高度，但不超过视口高度减去导航高度
-//     const maxPossibleHeight = viewportHeight - imageTopOffset;
-//     const finalHeight = Math.min(calculatedHeight, maxPossibleHeight);
-    
-//     this.wrapper.style.height = `${finalHeight}px`;
-    
-//     // 图片尺寸处理
-//     this.image.style.width = '100%';
-//     this.image.style.height = 'auto';
-    
-//     // 确保图片高度足够进行视差滚动
-//     const minHeight = finalHeight + (this.imageTop * 2);
-//     if (this.image.offsetHeight < minHeight) {
-//       this.image.style.height = `${minHeight}px`;
-//       this.image.style.width = 'auto';
-//     }
-    
-//     this.updateImagePosition(window.scrollY);
-//   }
-  
-//   scrollBioImage() {
-//     const scrollTop = window.scrollY;
-//     const wrapperRect = this.wrapper.getBoundingClientRect();
-    
-//     // 只在图片在视口内时更新位置
-//     if (wrapperRect.top < window.innerHeight && wrapperRect.bottom > 0) {
-//       this.updateImagePosition(scrollTop);
-//     }
-//   }
-  
-//   updateImagePosition(scrollTop) {
-//     const wrapperRect = this.wrapper.getBoundingClientRect();
-//     const wrapperTop = wrapperRect.top + window.scrollY;
-    
-//     // 计算视差位置
-//     const relativeScroll = scrollTop - wrapperTop;
-//     const parallaxOffset = relativeScroll * this.parallaxSpeed;
-    
-//     // 限制移动范围
-//     const maxOffset = this.image.offsetHeight - this.wrapper.offsetHeight;
-//     const boundedOffset = Math.max(0, Math.min(parallaxOffset, maxOffset));
-    
-//     this.image.style.top = `-${boundedOffset}px`;
-//   }
-  
-//   debounce(func, wait) {
-//     let timeout;
-//     return function executedFunction(...args) {
-//       const later = () => {
-//         clearTimeout(timeout);
-//         func(...args);
-//       };
-//       clearTimeout(timeout);
-//       timeout = setTimeout(later, wait);
-//     };
-//   }
-// }
-
-// // 使用示例
-// const parallax = new ParallaxImage({
-//   maxImageWidth: 1200,
-//   maxImageHeight: 800,
-//   imageTop: 100,
-//   parallaxSpeed: 0.3,
-//   aspectRatio: 0.2 // 可以调整这个值来改变容器的宽高比
-// });
 
 function switchPage() {
   const currentHash = location.hash;
@@ -225,31 +130,63 @@ function includeHTML() {
   }
 }
 
-// 确保在 DOM 加载完成后执行
+// 将所有菜单相关的代码移到 DOMContentLoaded 事件中
 document.addEventListener('DOMContentLoaded', function() {
   console.log("DOM Content Loaded - executing includeHTML");
   includeHTML();
-});
 
-// 汉堡菜单切换
-document.getElementById('menu-btn').addEventListener('click', function() {
+  // 汉堡菜单切换
+  const menuBtn = document.getElementById('menu-btn');
   const mobileMenu = document.getElementById('mobile-menu');
-  mobileMenu.classList.toggle('hidden');
-  adjustImageHeight();
-  scrollBioImage();
-});
+  
+  console.log('Menu elements:', { menuBtn, mobileMenu }); // 调试日志
 
-// 获取移动端菜单元素
-const mobileMenu = document.getElementById('mobile-menu');
-// 获取所有移动端菜单中的链接
-const mobileMenuLinks = mobileMenu.querySelectorAll('a');
+  if (menuBtn && mobileMenu) {
+    menuBtn.addEventListener('click', function(e) {
+      e.preventDefault(); // 阻止默认行为
+      console.log('Menu button clicked'); // 调试日志
+      
+      // 检查菜单是否已经显示
+      if (mobileMenu.classList.contains('translate-x-0') || !mobileMenu.classList.contains('hidden')) {
+        // 如果菜单已显示，则立即关闭它（无动画）
+        mobileMenu.classList.remove('translate-x-0');
+        mobileMenu.classList.add('-translate-x-full');
+        mobileMenu.classList.add('hidden');
+        mobileMenu.style.display = 'none'; // 显式设置 display 为 none
+      } else {
+        // 如果菜单未显示，则打开它
+        mobileMenu.style.display = 'block'; // 显式设置 display 为 block
+        requestAnimationFrame(() => {
+          mobileMenu.classList.remove('hidden');
+          // 强制重排
+          mobileMenu.offsetHeight;
+          
+          requestAnimationFrame(() => {
+            mobileMenu.classList.add('translate-x-0');
+            mobileMenu.classList.remove('-translate-x-full');
+          });
+        });
+      }
+    });
 
-// 为每个链接添加点击事件监听器
-mobileMenuLinks.forEach(link => {
-  link.addEventListener('click', () => {
-    mobileMenu.classList.add('hidden'); // 点击后隐藏菜单
-    console.log("mobile menu clicked");
-    adjustImageHeight();
-    scrollBioImage();
-  });
+    // 菜单链接点击处理也需要立即隐藏
+    const mobileMenuLinks = mobileMenu.querySelectorAll('a');
+    mobileMenuLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        console.log('Menu link clicked'); // 调试日志
+        
+        mobileMenu.classList.remove('translate-x-0');
+        mobileMenu.classList.add('-translate-x-full');
+        mobileMenu.classList.add('hidden');
+        mobileMenu.style.display = 'none'; // 显式设置 display 为 none
+        adjustImageHeight();
+        scrollBioImage();
+      });
+    });
+  } else {
+    console.error('Menu elements not found:', {
+      menuBtn: !!menuBtn,
+      mobileMenu: !!mobileMenu,
+    });
+  }
 });
