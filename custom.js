@@ -40,6 +40,13 @@ function switchPage() {
   const pageComp = document.getElementById("page-comp");
   const pageContact = document.getElementById("page-contact");
   
+  // 停止所有媒体播放器
+  const mediaIframes = document.querySelectorAll('iframe[src*="youtube.com"], iframe[src*="soundcloud.com"]');
+  mediaIframes.forEach(iframe => {
+    const src = iframe.src;
+    iframe.src = src; // 重新加载iframe会停止播放
+  });
+  
   // 所有作品页面的引用
   const pages = {
     dandelion: document.getElementById("detail-dandelion"),
