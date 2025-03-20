@@ -1,0 +1,1478 @@
+From 2d0511d55d7336a937f84f76c4d873dd38775abf Mon Sep 17 00:00:00 2001
+From: bennyguo <bennyguo@163.com>
+Date: Thu, 20 Mar 2025 23:57:53 +0800
+Subject: [PATCH] fix loading and page switching
+
+---
+ custom.js  | 350 +++++++++++++++---------------
+ index.html | 413 +++++++++++++++++++-----------------
+ vue-app.js | 610 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 1007 insertions(+), 366 deletions(-)
+ create mode 100644 vue-app.js
+
+diff --git a/custom.js b/custom.js
+index a434a55..74fe791 100644
+--- a/custom.js
++++ b/custom.js
+@@ -1,199 +1,197 @@
+-const maxImageWidth = 1440;
+-const maxImageHeight = 960;
+-const imageTop = 180;
++// This file is kept for backward compatibility but functionality has been migrated to vue-app.js
++// If you're using the Vue.js implementation, this file isn't necessary anymore.
+ 
+-function adjustImageHeight() {
+-  const image = document.getElementById("bio-image");
+-  const imageWrapper = document.getElementById('bio-image-wrapper');
+-  const viewportHeight = window.innerHeight;
+-  const viewportWidth = window.innerWidth;
+-  const imageTopOffset = imageWrapper.getBoundingClientRect().top + document.documentElement.scrollTop;
+-  imageWrapper.style.width = "100%";
+-  const imageWrapperHeight = viewportHeight - imageTopOffset;
++// Legacy redirect for older browsers or when JavaScript is disabled
++if (typeof Vue === 'undefined') {
++  console.warn('Vue.js not detected. Using legacy compatibility mode.');
++  
++  const maxImageWidth = 1440;
++  const maxImageHeight = 960;
++  const imageTop = 180;
++
++  function adjustImageHeight() {
++    const image = document.getElementById("bio-image");
++    const imageWrapper = document.getElementById('bio-image-wrapper');
++    const viewportHeight = window.innerHeight;
++    const viewportWidth = window.innerWidth;
++    const imageTopOffset = imageWrapper.getBoundingClientRect().top + document.documentElement.scrollTop;
++    imageWrapper.style.width = "100%";
++    const imageWrapperHeight = viewportHeight - imageTopOffset;
+ 
+-  imageWrapper.style.height = imageWrapperHeight + 'px';
+-  if (viewportWidth > maxImageWidth) {
+-    image.style.width = "100%";
+-    image.style.top = -imageTop + "px";
+-  } else {
+-    image.style.width = maxImageWidth + "px";
+-    const delta = maxImageWidth - viewportWidth;
+-    const left = Math.floor(delta * 0.6);
+-    image.style.left = -left + "px";
+-    image.style.top = -imageTop + "px";
++    imageWrapper.style.height = imageWrapperHeight + 'px';
++    if (viewportWidth > maxImageWidth) {
++      image.style.width = "100%";
++      image.style.top = -imageTop + "px";
++    } else {
++      image.style.width = maxImageWidth + "px";
++      const delta = maxImageWidth - viewportWidth;
++      const left = Math.floor(delta * 0.6);
++      image.style.left = -left + "px";
++      image.style.top = -imageTop + "px";
++    }
+   }
+-}
+ 
+-function scrollBioImage() {
+-  const image = document.getElementById("bio-image");
+-  const imageWrapper = document.getElementById('bio-image-wrapper');
+-  if (imageWrapper.offsetHeight < maxImageHeight - imageTop) {
+-    const scrollTop = document.documentElement.scrollTop;
+-    // image.style.top = -Math.min(Math.floor(scrollTop / 6), imageTop) + "px";
+-    image.style.top = Math.min(-imageTop + Math.floor(scrollTop / 3), imageTop) + "px";
++  function scrollBioImage() {
++    const image = document.getElementById("bio-image");
++    const imageWrapper = document.getElementById('bio-image-wrapper');
++    if (imageWrapper.offsetHeight < maxImageHeight - imageTop) {
++      const scrollTop = document.documentElement.scrollTop;
++      image.style.top = Math.min(-imageTop + Math.floor(scrollTop / 3), imageTop) + "px";
++    }
+   }
+-}
+ 
+-function switchPage() {
+-  const currentHash = location.hash;
+-  const pageBio = document.getElementById("page-bio");
+-  const pageComp = document.getElementById("page-comp");
+-  const pageContact = document.getElementById("page-contact");
+-  
+-  // 停止所有媒体播放器
+-  const mediaIframes = document.querySelectorAll('iframe[src*="youtube.com"], iframe[src*="soundcloud.com"]');
+-  mediaIframes.forEach(iframe => {
+-    const src = iframe.src;
+-    iframe.src = src; // 重新加载iframe会停止播放
+-  });
+-  
+-  // 所有作品页面的引用
+-  const pages = {
+-    dandelion: document.getElementById("detail-dandelion"),
+-    tiantai: document.getElementById("detail-tiantai"),
+-    poem: document.getElementById("detail-poem"),
+-    temple: document.getElementById("detail-temple"),
+-    eternal: document.getElementById("detail-eternal"),
+-    clouds: document.getElementById("detail-clouds"),
+-    path: document.getElementById("detail-path"),
+-    rumeng: document.getElementById("detail-rumeng"),
+-    bird: document.getElementById("detail-bird"),
+-    tasuo: document.getElementById("detail-tasuo"),
+-    mailied: document.getElementById("detail-mailied"),
+-    kaidan: document.getElementById("detail-kaidan"),
+-    paintings: document.getElementById("detail-paintings"),
+-    whinnings: document.getElementById("detail-whinnings")
+-  };
++  function switchPage() {
++    const currentHash = location.hash;
++    const pageBio = document.getElementById("page-bio");
++    const pageComp = document.getElementById("page-comp");
++    const pageContact = document.getElementById("page-contact");
++    
++    // Stop all media players
++    const mediaIframes = document.querySelectorAll('iframe[src*="youtube.com"], iframe[src*="soundcloud.com"]');
++    mediaIframes.forEach(iframe => {
++      const src = iframe.src;
++      iframe.src = src; // Reload iframe to stop playback
++    });
++    
++    // Get all composition page references
++    const pages = {
++      dandelion: document.getElementById("detail-dandelion"),
++      tiantai: document.getElementById("detail-tiantai"),
++      poem: document.getElementById("detail-poem"),
++      temple: document.getElementById("detail-temple"),
++      eternal: document.getElementById("detail-eternal"),
++      clouds: document.getElementById("detail-clouds"),
++      path: document.getElementById("detail-path"),
++      rumeng: document.getElementById("detail-rumeng"),
++      bird: document.getElementById("detail-bird"),
++      tasuo: document.getElementById("detail-tasuo"),
++      mailied: document.getElementById("detail-mailied"),
++      kaidan: document.getElementById("detail-kaidan"),
++      paintings: document.getElementById("detail-paintings"),
++      whinnings: document.getElementById("detail-whinnings")
++    };
+ 
+-  // 确保基本页面元素存在
+-  if (!pageBio || !pageComp || !pageContact) {
+-    setTimeout(switchPage, 100);
+-    return;
+-  }
++    // Make sure base pages exist
++    if (!pageBio || !pageComp || !pageContact) {
++      setTimeout(switchPage, 100);
++      return;
++    }
+ 
+-  // 先隐藏所有页面
+-  pageBio.style.display = "none";
+-  pageComp.style.display = "none";
+-  pageContact.style.display = "none";
+-  Object.values(pages).forEach(page => {
+-    if (page) page.style.display = "none";
+-  });
++    // Hide all pages first
++    pageBio.style.display = "none";
++    pageComp.style.display = "none";
++    pageContact.style.display = "none";
++    Object.values(pages).forEach(page => {
++      if (page) page.style.display = "none";
++    });
+ 
+-  // 根据 hash 显示对应页面
+-  if (currentHash === "#compositions" || currentHash === "#choral-mixed" || 
+-      currentHash === "#choral-treble" || currentHash === "#instrumental") {
+-    pageComp.style.display = "grid";
+-  } else if (currentHash === "#contact") {
+-    pageContact.style.display = "grid";
+-  } else {
+-    // 检查是否是作品页面
+-    const pageId = currentHash.substring(1); // 移除 # 符号
+-    if (pages[pageId]) {
+-      pages[pageId].style.display = "grid";
++    // Show the appropriate page based on hash
++    if (currentHash === "#compositions" || currentHash === "#choral-mixed" || 
++        currentHash === "#choral-treble" || currentHash === "#instrumental") {
++      pageComp.style.display = "grid";
++    } else if (currentHash === "#contact") {
++      pageContact.style.display = "grid";
+     } else {
+-      pageBio.style.display = "grid";
++      // Check if it's a composition page
++      const pageId = currentHash.substring(1); // Remove # symbol
++      if (pages[pageId]) {
++        pages[pageId].style.display = "grid";
++      } else {
++        pageBio.style.display = "grid";
++      }
+     }
++    adjustImageHeight();
++    scrollBioImage();
+   }
+-  adjustImageHeight();
+-  scrollBioImage();
+-}
+ 
+-function init() {
+-  adjustImageHeight();
+-  switchPage();
+-}
++  function init() {
++    adjustImageHeight();
++    switchPage();
++  }
+ 
+-window.addEventListener('resize', adjustImageHeight);
+-window.addEventListener('load', init);
+-window.addEventListener('scroll', scrollBioImage);
+-window.addEventListener("hashchange", switchPage);
++  window.addEventListener('resize', adjustImageHeight);
++  window.addEventListener('load', init);
++  window.addEventListener('scroll', scrollBioImage);
++  window.addEventListener("hashchange", switchPage);
+ 
+-function includeHTML() {
+-  const elements = document.getElementsByTagName("*");
+-  
+-  for (let element of elements) {
+-    const file = element.getAttribute("w3-include-html");
+-    if (file) {
+-      console.log("Attempting to load:", file);
+-      fetch(file)
+-        .then(response => {
+-          console.log("Response status:", response.status);
+-          if (!response.ok) {
+-            throw new Error(`HTTP error! status: ${response.status}`);
+-          }
+-          return response.text();
+-        })
+-        .then(data => {
+-          console.log("Successfully loaded file:", file);
+-          element.innerHTML = data;
+-          element.removeAttribute("w3-include-html");
+-          switchPage();
+-        })
+-        .catch(error => {
+-          console.error(`Error loading ${file}:`, error);
+-          element.innerHTML = `Error loading page: ${file}`;
+-        });
++  // Simple HTML include function for legacy compatibility
++  function includeHTML() {
++    const elements = document.getElementsByTagName("*");
++    
++    for (let element of elements) {
++      const file = element.getAttribute("w3-include-html");
++      if (file) {
++        console.log("Attempting to load:", file);
++        fetch(file)
++          .then(response => {
++            console.log("Response status:", response.status);
++            if (!response.ok) {
++              throw new Error(`HTTP error! status: ${response.status}`);
++            }
++            return response.text();
++          })
++          .then(data => {
++            console.log("Successfully loaded file:", file);
++            element.innerHTML = data;
++            element.removeAttribute("w3-include-html");
++            switchPage();
++          })
++          .catch(error => {
++            console.error(`Error loading ${file}:`, error);
++            element.innerHTML = `Error loading page: ${file}`;
++          });
++      }
+     }
+   }
+-}
+-
+-// 将所有菜单相关的代码移到 DOMContentLoaded 事件中
+-document.addEventListener('DOMContentLoaded', function() {
+-  console.log("DOM Content Loaded - executing includeHTML");
+-  includeHTML();
+ 
+-  // 汉堡菜单切换
+-  const menuBtn = document.getElementById('menu-btn');
+-  const mobileMenu = document.getElementById('mobile-menu');
+-  
+-  console.log('Menu elements:', { menuBtn, mobileMenu }); // 调试日志
++  // Initialize the page when DOM is ready
++  document.addEventListener('DOMContentLoaded', function() {
++    console.log("DOM Content Loaded - executing includeHTML in compatibility mode");
++    includeHTML();
+ 
+-  if (menuBtn && mobileMenu) {
+-    menuBtn.addEventListener('click', function(e) {
+-      e.preventDefault(); // 阻止默认行为
+-      console.log('Menu button clicked'); // 调试日志
+-      
+-      // 检查菜单是否已经显示
+-      if (mobileMenu.classList.contains('translate-x-0') || !mobileMenu.classList.contains('hidden')) {
+-        // 如果菜单已显示，则立即关闭它（无动画）
+-        mobileMenu.classList.remove('translate-x-0');
+-        mobileMenu.classList.add('-translate-x-full');
+-        mobileMenu.classList.add('hidden');
+-        mobileMenu.style.display = 'none'; // 显式设置 display 为 none
+-      } else {
+-        // 如果菜单未显示，则打开它
+-        mobileMenu.style.display = 'block'; // 显式设置 display 为 block
+-        requestAnimationFrame(() => {
+-          mobileMenu.classList.remove('hidden');
+-          // 强制重排
+-          mobileMenu.offsetHeight;
+-          
++    // Menu toggle functionality for mobile
++    const menuBtn = document.getElementById('menu-btn');
++    const mobileMenu = document.getElementById('mobile-menu');
++    
++    if (menuBtn && mobileMenu) {
++      menuBtn.addEventListener('click', function(e) {
++        e.preventDefault();
++        
++        if (mobileMenu.classList.contains('translate-x-0') || !mobileMenu.classList.contains('hidden')) {
++          mobileMenu.classList.remove('translate-x-0');
++          mobileMenu.classList.add('-translate-x-full');
++          mobileMenu.classList.add('hidden');
++          mobileMenu.style.display = 'none';
++        } else {
++          mobileMenu.style.display = 'block';
+           requestAnimationFrame(() => {
+-            mobileMenu.classList.add('translate-x-0');
+-            mobileMenu.classList.remove('-translate-x-full');
++            mobileMenu.classList.remove('hidden');
++            mobileMenu.offsetHeight; // Force reflow
++            
++            requestAnimationFrame(() => {
++              mobileMenu.classList.add('translate-x-0');
++              mobileMenu.classList.remove('-translate-x-full');
++            });
+           });
+-        });
+-      }
+-    });
++        }
++      });
+ 
+-    // 菜单链接点击处理也需要立即隐藏
+-    const mobileMenuLinks = mobileMenu.querySelectorAll('a');
+-    mobileMenuLinks.forEach(link => {
+-      link.addEventListener('click', () => {
+-        console.log('Menu link clicked'); // 调试日志
+-        
+-        mobileMenu.classList.remove('translate-x-0');
+-        mobileMenu.classList.add('-translate-x-full');
+-        mobileMenu.classList.add('hidden');
+-        mobileMenu.style.display = 'none'; // 显式设置 display 为 none
+-        adjustImageHeight();
+-        scrollBioImage();
++      // Close menu when links are clicked
++      const mobileMenuLinks = mobileMenu.querySelectorAll('a');
++      mobileMenuLinks.forEach(link => {
++        link.addEventListener('click', () => {
++          mobileMenu.classList.remove('translate-x-0');
++          mobileMenu.classList.add('-translate-x-full');
++          mobileMenu.classList.add('hidden');
++          mobileMenu.style.display = 'none';
++          adjustImageHeight();
++          scrollBioImage();
++        });
+       });
+-    });
+-  } else {
+-    console.error('Menu elements not found:', {
+-      menuBtn: !!menuBtn,
+-      mobileMenu: !!mobileMenu,
+-    });
+-  }
+-});
++    } else {
++      console.error('Menu elements not found in compatibility mode');
++    }
++  });
++} else {
++  console.log('Vue.js detected. Using modern SPA implementation.');
++}
+diff --git a/index.html b/index.html
+index 8a99602..df7f612 100644
+--- a/index.html
++++ b/index.html
+@@ -3,8 +3,10 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" /> 
+-    <title>Document</title>
++    <title>Xingzimin Pan | Composer</title>
+     <script src="https://cdn.tailwindcss.com"></script>
++    <!-- Vue.js CDN -->
++    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+@@ -34,231 +36,262 @@
+         max-width: 100%;
+         overflow-x: hidden;
+       }
++      [v-cloak] {
++        display: none;
++      }
++      
++      /* Page transitions */
++      #pages > div {
++        will-change: opacity, transform;
++      }
++      
++      /* Smooth scrolling */
++      html {
++        scroll-behavior: smooth;
++      }
++      
++      /* Improved link styles */
++      a.font-semibold {
++        position: relative;
++        transition: color 0.2s;
++      }
++      
++      a.font-semibold::after {
++        content: '';
++        position: absolute;
++        width: 100%;
++        transform: scaleX(0);
++        height: 1px;
++        bottom: 0;
++        left: 0;
++        background-color: currentColor;
++        transform-origin: bottom right;
++        transition: transform 0.25s ease-out;
++      }
++      
++      a.font-semibold:hover::after {
++        transform: scaleX(1);
++        transform-origin: bottom left;
++      }
+     </style>
+   </head>
+   <body>
+-    <!-- header -->
+-    <div id="header">
+-      <div>
+-        <!-- 移动端菜单按钮 -->
+-        <div class="md:hidden absolute top-8 left-6">
+-          <button id="menu-btn" class="text-[oklch(0.374 0.01 67.558)]">
+-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
+-            </svg>
+-          </button>
+-        </div>
++    <div id="app" v-cloak>
++      <!-- header -->
++      <div id="header">
++        <div>
++          <!-- 移动端菜单按钮 -->
++          <div class="md:hidden absolute top-8 left-6">
++            <button id="menu-btn" class="text-[oklch(0.374 0.01 67.558)]" @click="toggleMobileMenu">
++              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
++              </svg>
++            </button>
++          </div>
+ 
+-        <div class="flex justify-center pt-8 md:pb-0.5 pb-0">
+-          <img src="images/portraits/SVG/name1.svg" class="md:h-11 h-10 pb-0.5" alt="潘行紫旻"/>
++          <div class="flex justify-center pt-8 md:pb-0.5 pb-0">
++            <img src="images/portraits/SVG/name1.svg" class="md:h-11 h-10 pb-0.5" alt="潘行紫旻"/>
++          </div>
++          <div class="font-['Cormorant_Garamond'] tracking-widest font-medium md:text-4xl text-[32px] text-center pb-8 text-[oklch(0.374 0.01 67.558)]">XING PAN</div>
+         </div>
+-        <div class="font-['Cormorant_Garamond'] tracking-widest font-medium md:text-4xl text-[32px] text-center pb-8 text-[oklch(0.374 0.01 67.558)]">XING PAN</div>
+-      </div>
+ 
+-      <!-- 移动端菜单内容 -->
+-      <div id="mobile-menu" class="hidden md:hidden bg-white pb-8">
+-        <div class="flex flex-col items-center space-y-4">
+-          <!-- 添加装饰线容器 -->
+-          <div class="flex flex-col items-center">
+-            <a href="#" class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold">BIO</a>
+-            <div class="w-full h-[1px] bg-yellow-900 mt-1"></div>
+-          </div>
+-          
+-          <div class="flex flex-col items-center">
+-            <a href="#compositions" class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold">COMPOSITIONS</a>
+-            <div class="w-full h-[1px] bg-yellow-900 mt-1"></div>
+-          </div>
+-          
+-          <div class="flex flex-col items-center">
+-            <a href="#contact" class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold">CONTACT</a>
+-            <div class="w-full h-[1px] bg-yellow-900 mt-1"></div>
++        <!-- 移动端菜单内容 -->
++        <div id="mobile-menu" class="md:hidden bg-white pb-8" :class="mobileMenuClass">
++          <div class="flex flex-col items-center space-y-4">
++            <!-- 添加装饰线容器 -->
++            <div class="flex flex-col items-center">
++              <a href="#" @click="navigateTo('bio')" class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold">BIO</a>
++              <div class="w-full h-[1px] bg-yellow-900 mt-1"></div>
++            </div>
++            
++            <div class="flex flex-col items-center">
++              <a href="#compositions" @click="navigateTo('compositions')" class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold">COMPOSITIONS</a>
++              <div class="w-full h-[1px] bg-yellow-900 mt-1"></div>
++            </div>
++            
++            <div class="flex flex-col items-center">
++              <a href="#contact" @click="navigateTo('contact')" class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold">CONTACT</a>
++              <div class="w-full h-[1px] bg-yellow-900 mt-1"></div>
++            </div>
+           </div>
+         </div>
+-      </div>
+ 
+-      <div id="nav" class="hidden md:grid grid-cols-9 gap-4 text-center place-items-center py-0.5 pb-4">
+-        <div class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold col-start-3 col-span-1 no-underline hover:underline decoration-1 underline-offset-4"><a href="#">BIO</a></div>
+-        <div class="w-[1px] h-4 bg-yellow-900 col-span-1"></div>
+-        <div class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold col-start-5 col-span-1 no-underline hover:underline decoration-1 underline-offset-4"><a href="#compositions">COMPOSITIONS</a></div>
+-        <div class="w-[1px] h-4 bg-yellow-900 col-span-1"></div>
+-        <div class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold col-start-7 col-span-1 no-underline hover:underline decoration-1 underline-offset-4"><a href="#contact">CONTACT</a></div>
++        <div id="nav" class="hidden md:grid grid-cols-9 gap-4 text-center place-items-center py-0.5 pb-4">
++          <div class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold col-start-3 col-span-1 no-underline hover:underline decoration-1 underline-offset-4"><a href="#" @click="navigateTo('bio')">BIO</a></div>
++          <div class="w-[1px] h-4 bg-yellow-900 col-span-1"></div>
++          <div class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold col-start-5 col-span-1 no-underline hover:underline decoration-1 underline-offset-4"><a href="#compositions" @click="navigateTo('compositions')">COMPOSITIONS</a></div>
++          <div class="w-[1px] h-4 bg-yellow-900 col-span-1"></div>
++          <div class="font-['Cormorant_Garamond'] tracking-wide text-[oklch(0.444_0.011_73.639)] text-xl font-semibold col-start-7 col-span-1 no-underline hover:underline decoration-1 underline-offset-4"><a href="#contact" @click="navigateTo('contact')">CONTACT</a></div>
++        </div>
+       </div>
+ 
+-    </div>
+-
+-    <!-- pages start here -->
+-    <div id="pages">
+-
+-      <!-- page bio -->
+-      <div id="page-bio">
+-        <div id="bio-image-wrapper" class="overflow-hidden" style="position: relative;">
+-          <img
+-            id="bio-image"
+-            class="max-w-none relative"
+-            src="images/portraits/Xingziminpan.webp"
+-            alt="潘行紫旻"
+-            onload="adjustImageHeight(); scrollBioImage();"
+-          />
+-          <div class="absolute left-6 bottom-4 font-['Akatab'] font-light text-white/75 text-xs text-left tracking-wide hidden md:block">
+-            Photo Credit: Sarah Galli Photography 2015
++      <!-- pages start here -->
++      <div id="pages">
++        <!-- page bio -->
++        <div id="page-bio" v-show="currentPage === 'bio'" class="fade-in">
++          <div id="bio-image-wrapper" class="overflow-hidden" style="position: relative;">
++            <img
++              id="bio-image"
++              class="max-w-none relative"
++              src="images/portraits/Xingziminpan.webp"
++              alt="潘行紫旻"
++              @load="onImageLoad"
++            />
++            <div class="absolute left-6 bottom-4 font-['Akatab'] font-light text-white/75 text-xs text-left tracking-wide hidden md:block">
++              Photo Credit: Sarah Galli Photography 2015
++            </div>
++            <div id="image-arrow" class="absolute bottom-8 left-1/2 transform -translate-x-1/2 hover:translate-y-2 transition-all duration-300">
++              <a href="#bio-text-box"><img src="images/portraits/SVG/arrow.svg" class="md:h-6 h-5" alt="arrow"/></a>
++            </div>
+           </div>
+-          <div id="image-arrow" class="absolute bottom-8 left-1/2 transform -translate-x-1/2 hover:translate-y-2 transition-all duration-300">
+-            <a href="#bio-text-box"><img src="images/portraits/SVG/arrow.svg" class="md:h-6 h-5" alt="arrow"/></a>
++          <div id="bio-text-box" class="grid md:grid-cols-4 grid-cols-6 text-left pt-24 pb-24 bg-amber-50/75">
++            <div class="md:col-start-2 col-start-2 md:col-span-2 col-span-4">
++              <div class="tracking-wide font-['Cormorant_Garamond'] font-semibold md:text-2xl text-xl text-yellow-900 pb-8">
++                BIO | XING PAN
++              </div>
++              <div class="font-['Akatab'] font-light text-base text-[oklch(0.444_0.011_73.639)] leading-7">
++                Xing PAN (Xingzimin PAN, <span class="font-['Noto_Sans_SC'] font-regular">潘行紫旻</span>) is a Chinese composer. His music
++                has been performed in the United States, Canada, Germany, Austria,
++                Norway, Sweden, France, Italy, Greece, Malta, South Africa, Hungary,
++                Slovenia, Romania, Croatia, Slovakia, Poland, New Zealand, Australia,
++                Singapore, Japan, South Korea, and China, and the venues include
++                Norway National Opera & Ballet House, Chicago Cultural Center,
++                Goldener Saal Wiener Musikvereins, Yong Siew Toh Concert Hall, China
++                National Centre for the Performing Arts, Taipei National Theater and
++                Concert Hall, etc. He is the recipient of awards from the
++                <b class="font-semibold">International Federation of Choral Music Composition Competition</b>, the
++                American Prize, <b class="font-semibold">RED NOTE Composition Competition</b>, <b class="font-semibold">Diane Loomer Award</b>,
++                Musica Prospettiva Call for Scores, Leonardo Da Vinci International
++                Choral Composition Competition, the Flute New Music Consortium
++                Composition Contest, <b class="font-semibold">China National Arts Fund</b>, and China-ASEAN Music
++                Week Composition Competition. His choral works are published by
++                several publishers including <a href="https://www.schott-music.com/en/person/xingzimin-pan" target="_blank" class="font-semibold text-yellow-900 visited:text-yellow-700">Schott Music</a>. 
++                <br>
++                <br>
++                As one of the most active Chinese choral composers, Pan's choral music focuses on conveying
++                different harmonic images and subtle emotional experiences of humans.
++                He has collaborated with <a href="https://www.princetonsingers.org" target="_blank" class="text-yellow-900 visited:text-yellow-700">Princeton Singers</a>, 
++                <a href="https://www.sydneychamberchoir.org" target="_blank" class="text-yellow-900 visited:text-yellow-700">Sydney Chamber Choir</a>,
++                <a href="https://www.stareatthesun.org/" target="_blank" class="text-yellow-900 visited:text-yellow-700"> at the Sun</a>,
++                <a href="https://choirsontario.org/ontario-youth-choir/" target="_blank" class="text-yellow-900 visited:text-yellow-700"> Ontario Youth Choir</a>, University of Toronto Women's
++                Choir, Western University Chorale, University of Saskatchewan
++                Greystone Singers, University of Southern California Concert Choir,
++                University of Canterbury (NZ) Chamber Choir,<a href="https://www.orianaconsort.org/" target="_blank" class="text-yellow-900 visited:text-yellow-700"> The Oriana Consort</a>, North
++                Carolina University Choir, Gdansk University Choir, CUHK choir,
++                National Taiwan University Choir, among other international choirs.
++                His <a href=" https://www.youtube.com/watch?v=fVM-ZkSwA4Y" target="_blank" class="text-yellow-900 visited:text-yellow-700">Dandelion</a> is <b class="font-semibold">one of the most-performed</b> choral compositions in
++                China since its publication in 2016, it has also been chosen by many
++                international choirs as the first choral work with Mandarin Chinese
++                text to be performed. In 2023, as the only composer from China, Pan
++                was invited to participate in the ACDA-Lehigh University Choral
++                Composers Forum hosted by <b class="font-semibold">Steven Sametz</b> and <b class="font-semibold">Ēriks Ešenvalds</b>. In 2024,
++                he was invited as a guest to present his music in concerts and
++                workshops at the <b class="font-semibold"">World Choir Game</b> in Auckland.
++                <br>
++                <br>
++                Pan's instrumental music aims to explore new harmonic colour, timbre and notation. His
++                <a href="https://www.youtube.com/watch?v=wK7nWdtrngs" target="_blank" class="text-yellow-900 visited:text-yellow-700">Kaidan</a> for flute and piano is frequently performed in festivals and
++                concerts globally, including the New Music Chicago Concert, Slovenia
++                Composers Concert, Romania International Music Week, Kalamata
++                International Music Festival, etc., and is now listed in the
++                <b class="font-semibold">University of Music and Performing Arts Graz</b> library catalogue.
++                <br>
++                <br>
++                Xing Pan studied at Central China Normal University (BA) and the University
++                of Northern Iowa (MM), and holds a PhD in Composition from the
++                University of Utah, where he served as the president of the Utah
++                Composers Collective. He is now an Assistant Professor at the <b class="font-semibold">Chinese
++                University of Hong Kong Shenzhen School of Music</b>, and chief editor of
++                Temperament Music, <b class="font-semibold">China's leading choral publisher</b>.
++              </div>
++            </div>
+           </div>
+         </div>
+-        <div id="bio-text-box" class="grid md:grid-cols-4 grid-cols-6 text-left pt-24 pb-24 bg-amber-50/75">
+-          <div class="md:col-start-2 col-start-2 md:col-span-2 col-span-4">
+-            <div class="tracking-wide font-['Cormorant_Garamond'] font-semibold md:text-2xl text-xl text-yellow-900 pb-8">
+-              BIO | XING PAN
+-            </div>
+-            <div class="font-['Akatab'] font-light text-base text-[oklch(0.444_0.011_73.639)] leading-7">
+-              Xing PAN (Xingzimin PAN, <span class="font-['Noto_Sans_SC'] font-regular">潘行紫旻</span>) is a Chinese composer. His music
+-              has been performed in the United States, Canada, Germany, Austria,
+-              Norway, Sweden, France, Italy, Greece, Malta, South Africa, Hungary,
+-              Slovenia, Romania, Croatia, Slovakia, Poland, New Zealand, Australia,
+-              Singapore, Japan, South Korea, and China, and the venues include
+-              Norway National Opera & Ballet House, Chicago Cultural Center,
+-              Goldener Saal Wiener Musikvereins, Yong Siew Toh Concert Hall, China
+-              National Centre for the Performing Arts, Taipei National Theater and
+-              Concert Hall, etc. He is the recipient of awards from the
+-              <b class="font-semibold">International Federation of Choral Music Composition Competition</b>, the
+-              American Prize, <b class="font-semibold">RED NOTE Composition Competition</b>, <b class="font-semibold">Diane Loomer Award</b>,
+-              Musica Prospettiva Call for Scores, Leonardo Da Vinci International
+-              Choral Composition Competition, the Flute New Music Consortium
+-              Composition Contest, <b class="font-semibold">China National Arts Fund</b>, and China-ASEAN Music
+-              Week Composition Competition. His choral works are published by
+-              several publishers including <a href="https://www.schott-music.com/en/person/xingzimin-pan" target="_blank" class="font-semibold text-yellow-900 visited:text-yellow-700">Schott Music</a>. 
++
++        <!-- page compositions -->
++        <div id="page-comp" v-show="currentPage === 'compositions'" class="grid grid-cols-9 gap-4 text-left pt-24 pb-24 bg-amber-50/75 fade-in">
++          <div id="comp-nav" class="md:col-start-2 col-start-2 md:col-span-2 col-span-7 font-['Cormorant_Garamond'] leading-10 text-xl text-yellow-900">
++            <a href="#choral-mixed" @click.prevent="scrollToSection('choral-mixed')" class="font-semibold">CHORAL | MIXED</a>
++            <br>
++            <a href="#choral-treble" @click.prevent="scrollToSection('choral-treble')" class="font-semibold">CHORAL | TREBLE</a>
++            <br>
++            <a href="#instrumental" @click.prevent="scrollToSection('instrumental')" class="font-semibold">INSTRUMENTAL</a>
++          </div>
++          <div id="choral-mixed" class="pt-4 md:col-start-4 col-start-2 md:col-span-5 col-span-7 text-left">
++            <div class="pt-1 border-t border-yellow-900 font-['Archivo'] font-regular tracking-wider text-base text-yellow-900">CHORAL MIXED</div>
++            <div class="pt-6 text-[oklch(0.444_0.011_73.639)] font-['Archivo'] font-regular text-sm tracking-wide leading-10">
++              <a href="#dandelion" @click.prevent="loadComposition('dandelion')" class="font-['Crimson_Pro'] font-regular text-[26px]">Dandelion</a>&nbsp &nbsp &nbsp &nbsp SATB and piano &nbsp 5'30"
+               <br>
++              <a href="#tiantai" @click.prevent="loadComposition('tiantai')" class="font-['Crimson_Pro'] font-regular text-[26px]">Seeing Off Monk Xu to Visit Tiantai</a>&nbsp &nbsp &nbsp &nbsp SATB a cappella &nbsp 4'40"
+               <br>
+-              As one of the most active Chinese choral composers, Pan's choral music focuses on conveying
+-              different harmonic images and subtle emotional experiences of humans.
+-              He has collaborated with <a href="https://www.princetonsingers.org" target="_blank" class="text-yellow-900 visited:text-yellow-700">Princeton Singers</a>, 
+-              <a href="https://www.sydneychamberchoir.org" target="_blank" class="text-yellow-900 visited:text-yellow-700">Sydney Chamber Choir</a>,
+-              <a href="https://www.stareatthesun.org/" target="_blank" class="text-yellow-900 visited:text-yellow-700"> at the Sun</a>,
+-              <a href="https://choirsontario.org/ontario-youth-choir/" target="_blank" class="text-yellow-900 visited:text-yellow-700"> Ontario Youth Choir</a>, University of Toronto Women's
+-              Choir, Western University Chorale, University of Saskatchewan
+-              Greystone Singers, University of Southern California Concert Choir,
+-              University of Canterbury (NZ) Chamber Choir,<a href="https://www.orianaconsort.org/" target="_blank" class="text-yellow-900 visited:text-yellow-700"> The Oriana Consort</a>, North
+-              Carolina University Choir, Gdansk University Choir, CUHK choir,
+-              National Taiwan University Choir, among other international choirs.
+-              His <a href=" https://www.youtube.com/watch?v=fVM-ZkSwA4Y" target="_blank" class="text-yellow-900 visited:text-yellow-700">Dandelion</a> is <b class="font-semibold">one of the most-performed</b> choral compositions in
+-              China since its publication in 2016, it has also been chosen by many
+-              international choirs as the first choral work with Mandarin Chinese
+-              text to be performed. In 2023, as the only composer from China, Pan
+-              was invited to participate in the ACDA-Lehigh University Choral
+-              Composers Forum hosted by <b class="font-semibold">Steven Sametz</b> and <b class="font-semibold">Ēriks Ešenvalds</b>. In 2024,
+-              he was invited as a guest to present his music in concerts and
+-              workshops at the <b class="font-semibold"">World Choir Game</b> in Auckland.
++              <a href="#poem" @click.prevent="loadComposition('poem')" class="font-['Crimson_Pro'] font-regular text-[26px]">Poem I</a>&nbsp &nbsp &nbsp &nbsp SATB a cappella &nbsp 4'10"
+               <br>
++              <a href="#temple" @click.prevent="loadComposition('temple')" class="font-['Crimson_Pro'] font-regular text-[26px]">Night in a Mountain Temple</a> &nbsp &nbsp &nbsp &nbsp SATB, piano and temple blocks &nbsp 5'50"
+               <br>
+-              Pan's instrumental music aims to explore new harmonic colour, timbre and notation. His
+-              <a href="https://www.youtube.com/watch?v=wK7nWdtrngs" target="_blank" class="text-yellow-900 visited:text-yellow-700">Kaidan</a> for flute and piano is frequently performed in festivals and
+-              concerts globally, including the New Music Chicago Concert, Slovenia
+-              Composers Concert, Romania International Music Week, Kalamata
+-              International Music Festival, etc., and is now listed in the
+-              <b class="font-semibold">University of Music and Performing Arts Graz</b> library catalogue.
++              <a href="#eternal" @click.prevent="loadComposition('eternal')" class="font-['Crimson_Pro'] font-regular text-[26px]">Three Eternal Questions II. Where Did I Come From?</a>&nbsp &nbsp &nbsp &nbsp SATB, piano and percussion &nbsp 5'30"
+               <br>
++              <a href="#clouds" @click.prevent="loadComposition('clouds')" class="font-['Crimson_Pro'] font-regular text-[26px]">In the Clouds</a>&nbsp &nbsp &nbsp &nbsp SATB and piano &nbsp 4'
++              <br> 
++              <a href="#path" @click.prevent="loadComposition('path')" class="font-['Crimson_Pro'] font-regular text-[26px]">Path</a>&nbsp &nbsp &nbsp &nbsp SATB a cappella (with optional finger cymbals) &nbsp 4'50"            
++            </div>
++          </div>
++
++          <div id="choral-treble" class="pt-12 md:col-start-4 col-start-2 md:col-span-5 col-span-7 text-left">
++            <div class="pt-1 border-t border-yellow-900 font-['Archivo'] font-regular tracking-wider text-sm text-yellow-900">CHORAL TREBLE</div>
++            <div class="pt-6 text-[oklch(0.444_0.011_73.639)] font-['Archivo'] font-regular text-sm tracking-wide leading-10">
++              <a href="#rumeng" @click.prevent="loadComposition('rumeng')" class="font-['Crimson_Pro'] font-regular text-[26px]">Ru Meng Ling · The Dusk at the Creek Arbor I Often Recall</a>&nbsp &nbsp &nbsp &nbsp SSA and piano &nbsp 3'
++              <br>
++              <a href="#bird" @click.prevent="loadComposition('bird')" class="font-['Crimson_Pro'] font-regular text-[26px]">A Wandering Bird</a> &nbsp &nbsp &nbsp &nbsp SSA and piano &nbsp 4'30"
+               <br>
+-              Xing Pan studied at Central China Normal University (BA) and the University
+-              of Northern Iowa (MM), and holds a PhD in Composition from the
+-              University of Utah, where he served as the president of the Utah
+-              Composers Collective. He is now an Assistant Professor at the <b class="font-semibold">Chinese
+-              University of Hong Kong Shenzhen School of Music</b>, and chief editor of
+-              Temperament Music, <b class="font-semibold">China's leading choral publisher</b>.
++              <a href="#tasuo" @click.prevent="loadComposition('tasuo')" class="font-['Crimson_Pro'] font-regular text-[26px]">Ta Suo Xing</a> &nbsp &nbsp &nbsp &nbsp SSA a cappella &nbsp 4'10"
++              <br>
++              <a href="#mailied" @click.prevent="loadComposition('mailied')" class="font-['Crimson_Pro'] font-regular text-[26px]">Mailied</a> &nbsp &nbsp &nbsp &nbsp SSA a cappella &nbsp 2'50"
+             </div>
+           </div>
+-        </div>
+-      </div>
+ 
+-      <!-- page compositions -->
+-      <div id="page-comp" class="grid grid-cols-9 gap-4 text-left pt-24 pb-24 bg-amber-50/75">
+-        <div id="comp-nav" class="md:col-start-2 col-start-2 md:col-span-2 col-span-7 font-['Cormorant_Garamond'] leading-10 text-xl text-yellow-900">
+-          <a href="#choral-mixed" class="font-semibold">CHORAL | MIXED</a>
+-          <br>
+-          <a href="#choral-treble" class="font-semibold">CHORAL | TREBLE</a>
+-          <br>
+-          <a href="#instrumental" class="font-semibold">INSTRUMENTAL</a>
+-        </div>
+-        <div id="choral-mixed" class="pt-4 md:col-start-4 col-start-2 md:col-span-5 col-span-7 text-left">
+-          <div class="pt-1 border-t border-yellow-900 font-['Archivo'] font-regular tracking-wider text-base text-yellow-900">CHORAL MIXED</div>
+-          <div class="pt-6 text-[oklch(0.444_0.011_73.639)] font-['Archivo'] font-regular text-sm tracking-wide leading-10">
+-            <a href="#dandelion" class="font-['Crimson_Pro'] font-regular text-[26px]">Dandelion</a>&nbsp &nbsp &nbsp &nbsp SATB and piano &nbsp 5'30"
+-            <br>
+-            <a href="#tiantai" class="font-['Crimson_Pro'] font-regular text-[26px]">Seeing Off Monk Xu to Visit Tiantai</a>&nbsp &nbsp &nbsp &nbsp SATB a cappella &nbsp 4'40"
+-            <br>
+-            <a href="#poem" class="font-['Crimson_Pro'] font-regular text-[26px]">Poem I</a>&nbsp &nbsp &nbsp &nbsp SATB a cappella &nbsp 4'10"
+-            <br>
+-            <a href="#temple" class="font-['Crimson_Pro'] font-regular text-[26px]">Night in a Mountain Temple</a> &nbsp &nbsp &nbsp &nbsp SATB, piano and temple blocks &nbsp 5'50"
+-            <br>
+-            <a href="#eternal" class="font-['Crimson_Pro'] font-regular text-[26px]">Three Eternal Questions II. Where Did I Come From?</a>&nbsp &nbsp &nbsp &nbsp SATB, piano and percussion &nbsp 5'30"
+-            <br>
+-            <a href="#clouds" class="font-['Crimson_Pro'] font-regular text-[26px]">In the Clouds</a>&nbsp &nbsp &nbsp &nbsp SATB and piano &nbsp 4'
+-            <br> 
+-            <a href="#path" class="font-['Crimson_Pro'] font-regular text-[26px]">Path</a>&nbsp &nbsp &nbsp &nbsp SATB a cappella (with optional finger cymbals) &nbsp 4'50"            
++          <div id="instrumental" class="pt-12 md:col-start-4 col-start-2 md:col-span-5 col-span-7 text-left">
++            <div class="pt-1 border-t border-yellow-900 font-['Archivo'] font-regular tracking-wider text-sm text-yellow-900">INSTRUMENTAL</div>
++            <div class="pt-6 text-[oklch(0.444_0.011_73.639)] font-['Archivo'] font-regular text-sm tracking-wide leading-10">
++              <a href="#kaidan" @click.prevent="loadComposition('kaidan')" class="font-['Crimson_Pro'] font-regular text-[26px]">Kaidan</a>&nbsp &nbsp &nbsp &nbsp flute and piano &nbsp 8'30"
++              <br>
++              <a href="#paintings" @click.prevent="loadComposition('paintings')" class="font-['Crimson_Pro'] font-regular text-[26px]">Three American Paintings</a> &nbsp &nbsp &nbsp &nbsp string quartet &nbsp 10'30"
++              <br>
++              <a href="#whinnings" @click.prevent="loadComposition('whinnings')" class="font-['Crimson_Pro'] font-regular text-[26px]">Three Whinnings</a> &nbsp &nbsp &nbsp &nbsp trombone solo &nbsp 9'30"
++            </div>
+           </div>
+         </div>
+ 
+-        <div id="choral-treble" class="pt-12 md:col-start-4 col-start-2 md:col-span-5 col-span-7 text-left">
+-          <div class="pt-1 border-t border-yellow-900 font-['Archivo'] font-regular tracking-wider text-sm text-yellow-900">CHORAL TREBLE</div>
+-          <div class="pt-6 text-[oklch(0.444_0.011_73.639)] font-['Archivo'] font-regular text-sm tracking-wide leading-10">
+-            <a href="#rumeng" class="font-['Crimson_Pro'] font-regular text-[26px]">Ru Meng Ling · The Dusk at the Creek Arbor I Often Recall</a>&nbsp &nbsp &nbsp &nbsp SSA and piano &nbsp 3'
+-            <br>
+-            <a href="#bird" class="font-['Crimson_Pro'] font-regular text-[26px]">A Wandering Bird</a> &nbsp &nbsp &nbsp &nbsp SSA and piano &nbsp 4'30"
+-            <br>
+-            <a href="#tasuo" class="font-['Crimson_Pro'] font-regular text-[26px]">Ta Suo Xing</a> &nbsp &nbsp &nbsp &nbsp SSA a cappella &nbsp 4'10"
+-            <br>
+-            <a href="#mailied" class="font-['Crimson_Pro'] font-regular text-[26px]">Mailied</a> &nbsp &nbsp &nbsp &nbsp SSA a cappella &nbsp 2'50"
+-          </div>
++        <!-- composition detail page -->
++        <div v-if="currentPage === 'composition-detail'" class="fade-in">
++          <div id="composition-content" v-html="compositionContent"></div>
+         </div>
+ 
+-        <div id="instrumental" class="pt-12 md:col-start-4 col-start-2 md:col-span-5 col-span-7 text-left">
+-          <div class="pt-1 border-t border-yellow-900 font-['Archivo'] font-regular tracking-wider text-sm text-yellow-900">INSTRUMENTAL</div>
+-          <div class="pt-6 text-[oklch(0.444_0.011_73.639)] font-['Archivo'] font-regular text-sm tracking-wide leading-10">
+-            <a href="#kaidan" class="font-['Crimson_Pro'] font-regular text-[26px]">Kaidan</a>&nbsp &nbsp &nbsp &nbsp flute and piano &nbsp 8'30"
+-            <br>
+-            <a href="#paintings" class="font-['Crimson_Pro'] font-regular text-[26px]">Three American Paintings</a> &nbsp &nbsp &nbsp &nbsp string quartet &nbsp 10'30"
++        <!-- page contact -->
++        <div id="page-contact" v-show="currentPage === 'contact'" class="grid md:grid-cols-9 grid-cols-6 gap-4 pt-24 pb-24 bg-amber-50/75 justify-items-center fade-in">
++          <div class="md:col-start-4 col-start-2 md:col-span-3 col-span-4 md:w-80 w-60 md:h-100 h-75 overflow-hidden rounded-md">
++            <img src="images/portraits/Contact.jpg" class="scale-100 hover:scale-105 transition-call duration-500"/>
++          </div>
++          <div class="md:col-start-4 col-start-2 md:col-span-3 col-span-4 font-['Akatab'] font-light text-center text-base text-[oklch(0.444_0.011_73.639)] pt-6 leading-7">
++            Inquire about commissions, collaborations, lectures, score purchasing, publishing, anything about Chinese choral music, or talk about dogs, please contact:
+             <br>
+-            <a href="#whinnings" class="font-['Crimson_Pro'] font-regular text-[26px]">Three Whinnings</a> &nbsp &nbsp &nbsp &nbsp trombone solo &nbsp 9'30"
++            emial: <span class="font-bold">pan.xingzimin@hotmail.com</span>
+           </div>
++          <br>
+         </div>
+       </div>
+ 
+-      <!-- compositions details -->
+-      <div w3-include-html="compositions/dandelion.html"></div>
+-      <div w3-include-html="compositions/tiantai.html"></div>
+-      <div w3-include-html="compositions/poem.html"></div>
+-      <div w3-include-html="compositions/temple.html"></div>
+-      <div w3-include-html="compositions/eternal.html"></div>
+-      <div w3-include-html="compositions/clouds.html"></div>
+-      <div w3-include-html="compositions/path.html"></div>
+-      <div w3-include-html="compositions/rumeng.html"></div>
+-      <div w3-include-html="compositions/bird.html"></div>
+-      <div w3-include-html="compositions/tasuo.html"></div>
+-      <div w3-include-html="compositions/mailied.html"></div>
+-      <div w3-include-html="compositions/kaidan.html"></div>
+-      <div w3-include-html="compositions/paintings.html"></div>
+-      <div w3-include-html="compositions/whinnings.html"></div>
+-
+-      <!-- page contact -->
+-      <div id="page-contact" class="grid md:grid-cols-9 grid-cols-6 gap-4 pt-24 pb-24 bg-amber-50/75 justify-items-center">
+-        <div class="md:col-start-4 col-start-2 md:col-span-3 col-span-4 md:w-80 w-60 md:h-100 h-75 overflow-hidden rounded-md">
+-          <img src="images/portraits/Contact.jpg" class="scale-100 hover:scale-105 transition-call duration-500"/>
+-        </div>
+-        <div class="md:col-start-4 col-start-2 md:col-span-3 col-span-4 font-['Akatab'] font-light text-center text-base text-[oklch(0.444_0.011_73.639)] pt-6 leading-7">
+-          Inquire about commissions, collaborations, lectures, score purchasing, publishing, anything about Chinese choral music, or talk about dogs, please contact:
+-          <br>
+-          emial: <span class="font-bold">pan.xingzimin@hotmail.com</span>
+-        </div>
+-        <br>
++      <!-- Loading indicator -->
++      <div v-if="loading" class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
++        <div class="text-yellow-900 text-xl">Loading...</div>
+       </div>
+-    </div>
+ 
+-    <!-- footer -->
+-    <div id="footer">
+-      <div class="font-['Archivo'] font-light text-xs text-center tracking-wider text-yellow-900 pt-12 pb-12">
+-        © XINGZIMIN PAN 2025 All Rights Reserved
++      <!-- footer -->
++      <div id="footer">
++        <div class="font-['Archivo'] font-light text-xs text-center tracking-wider text-yellow-900 pt-12 pb-12">
++          © XINGZIMIN PAN 2025 All Rights Reserved
++        </div>
+       </div>
+     </div>
++    <script src="vue-app.js"></script>
+   </body>
+-  <script src="custom.js"></script>
+ </html>
+diff --git a/vue-app.js b/vue-app.js
+new file mode 100644
+index 0000000..33f45e1
+--- /dev/null
++++ b/vue-app.js
+@@ -0,0 +1,610 @@
++// Cache object to store fetched composition content
++const compositionCache = {};
++
++// Helper function to detect browser capabilities
++const browserFeatures = {
++  historyAPI: typeof window.history.pushState !== 'undefined',
++  localStorage: (function() {
++    try {
++      localStorage.setItem('test', 'test');
++      localStorage.removeItem('test');
++      return true;
++    } catch(e) {
++      return false;
++    }
++  })()
++};
++
++// List of known composition IDs to distinguish from anchor links
++const knownCompositionIds = [
++  'dandelion', 'tiantai', 'poem', 'temple', 'eternal', 'clouds', 'path',
++  'rumeng', 'bird', 'tasuo', 'mailied', 'kaidan', 'paintings', 'whinnings'
++];
++
++// List of main pages
++const mainPageIds = ['compositions', 'contact', 'bio'];
++
++// Main Vue instance
++const app = new Vue({
++  el: '#app',
++  data: {
++    currentPage: 'bio',        // Current active page
++    loading: false,            // Loading state
++    mobileMenuOpen: false,     // Mobile menu state
++    compositionId: null,       // Current composition ID
++    compositionContent: '',    // Current composition HTML content
++    
++    // Cache for composition content
++    cache: compositionCache
++  },
++  computed: {
++    // Dynamic class for mobile menu
++    mobileMenuClass() {
++      return {
++        'hidden': !this.mobileMenuOpen,
++        'translate-x-0': this.mobileMenuOpen,
++        '-translate-x-full': !this.mobileMenuOpen
++      };
++    }
++  },
++  methods: {
++    // Handle links with # to determine if it's a page change or just an anchor
++    handleHashLink(event) {
++      // Get the href attribute
++      const link = event.currentTarget;
++      const href = link.getAttribute('href');
++      
++      // If no href or it doesn't start with #, let the browser handle it
++      if (!href || !href.startsWith('#')) return;
++      
++      // Get the hash without the # symbol
++      const hash = href.substring(1);
++      
++      // Check if the hash corresponds to a main page
++      if (mainPageIds.includes(hash)) {
++        event.preventDefault();
++        this.navigateTo(hash);
++        return;
++      }
++      
++      // Check if the hash is a composition ID
++      if (knownCompositionIds.includes(hash)) {
++        event.preventDefault();
++        this.loadComposition(hash);
++        return;
++      }
++      
++      // Check if it's a section in the compositions page
++      if (hash.startsWith('choral-') || hash === 'instrumental') {
++        event.preventDefault();
++        this.navigateTo('compositions');
++        this.$nextTick(() => {
++          this.scrollToSection(hash);
++        });
++        return;
++      }
++      
++      // It's a regular anchor link within the current page, let it behave normally
++      // But we need to prevent the default behavior if we're not on the right page
++      if (hash === 'bio-text-box' && this.currentPage !== 'bio') {
++        event.preventDefault();
++        this.navigateTo('bio');
++        this.$nextTick(() => {
++          this.scrollToAnchor(hash);
++        });
++        return;
++      }
++      
++      // For other anchor links, let the browser handle them naturally
++    },
++    
++    // Navigate to a page
++    navigateTo(page) {
++      // Set page in history and URL
++      const hash = page === 'bio' ? '' : page;
++      
++      if (browserFeatures.historyAPI) {
++        window.history.pushState({ page }, document.title, hash ? `#${hash}` : window.location.pathname);
++      } else {
++        // Fallback for older browsers
++        window.location.hash = hash || '';
++      }
++      
++      // Update current page
++      this.currentPage = page;
++      
++      // Close mobile menu if open
++      this.closeMobileMenu();
++      
++      // Run layout adjustments
++      this.$nextTick(() => {
++        this.adjustLayout();
++      });
++      
++      // Scroll to top
++      window.scrollTo(0, 0);
++    },
++    
++    // Scroll to an anchor element
++    scrollToAnchor(anchorId) {
++      const element = document.getElementById(anchorId);
++      if (element) {
++        element.scrollIntoView({ behavior: 'smooth' });
++      }
++    },
++    
++    // Toggle mobile menu
++    toggleMobileMenu() {
++      this.mobileMenuOpen = !this.mobileMenuOpen;
++    },
++    
++    // Close mobile menu
++    closeMobileMenu() {
++      this.mobileMenuOpen = false;
++    },
++    
++    // Load composition details
++    async loadComposition(id) {
++      // Update URL and history
++      if (browserFeatures.historyAPI) {
++        window.history.pushState({ page: 'composition-detail', id }, document.title, `#${id}`);
++      } else {
++        // Fallback for older browsers
++        window.location.hash = id;
++      }
++      
++      // Set current composition ID
++      this.compositionId = id;
++      
++      // Show loading state
++      this.loading = true;
++      this.currentPage = 'composition-detail';
++      
++      try {
++        // Check if content is already cached in memory
++        if (this.cache[id]) {
++          this.compositionContent = this.cache[id];
++          this.loading = false;
++          return;
++        }
++        
++        // Try to get from localStorage if available
++        if (browserFeatures.localStorage) {
++          const cachedContent = localStorage.getItem(`composition_${id}`);
++          if (cachedContent) {
++            this.compositionContent = cachedContent;
++            this.cache[id] = cachedContent;
++            this.loading = false;
++            return;
++          }
++        }
++        
++        // Fetch composition content
++        const response = await fetch(`compositions/${id}.html`);
++        
++        if (!response.ok) {
++          throw new Error(`HTTP error! status: ${response.status}`);
++        }
++        
++        // Get content as text
++        const content = await response.text();
++        
++        // Store in memory cache
++        this.cache[id] = content;
++        
++        // Store in localStorage if available
++        if (browserFeatures.localStorage) {
++          try {
++            localStorage.setItem(`composition_${id}`, content);
++          } catch (e) {
++            console.warn('LocalStorage quota exceeded, continuing without caching');
++          }
++        }
++        
++        // Update content
++        this.compositionContent = content;
++      } catch (error) {
++        console.error(`Error loading composition ${id}:`, error);
++        this.compositionContent = `<div class="grid md:grid-cols-4 grid-cols-6 gap-4 pt-24 pb-24 bg-amber-50/75">
++          <div class="md:col-start-2 col-start-2 md:col-span-2 col-span-4 text-left">
++            <div class="tracking-wide font-['Cormorant_Garamond'] font-bold text-2xl text-yellow-900 pb-8">
++              Error Loading Content
++            </div>
++            <div class="text-red-600">
++              Sorry, we couldn't load the requested content. Please try again later.
++            </div>
++            <div class="mt-8">
++              <a href="#compositions" @click.prevent="navigateTo('compositions')" class="text-yellow-900 hover:underline">
++                ← Back to Compositions
++              </a>
++            </div>
++          </div>
++        </div>`;
++      } finally {
++        // Hide loading state
++        this.loading = false;
++        
++        // Adjust layout
++        this.$nextTick(() => {
++          this.adjustLayout();
++          
++          // Add click handlers to any back buttons in the composition content
++          const backButtons = document.querySelectorAll('.back-to-compositions');
++          backButtons.forEach(button => {
++            button.addEventListener('click', (e) => {
++              e.preventDefault();
++              this.navigateTo('compositions');
++            });
++          });
++          
++          // Stop any media players if navigating away
++          this.stopMediaPlayers();
++        });
++      }
++    },
++    
++    // Adjust layout (bio image, etc.)
++    adjustLayout() {
++      if (this.currentPage === 'bio') {
++        this.adjustImageHeight();
++        this.scrollBioImage();
++      }
++    },
++    
++    // Handle image load event
++    onImageLoad() {
++      this.adjustImageHeight();
++      this.scrollBioImage();
++    },
++    
++    // Adjust bio image height (from custom.js)
++    adjustImageHeight() {
++      const image = document.getElementById("bio-image");
++      const imageWrapper = document.getElementById('bio-image-wrapper');
++      
++      if (!image || !imageWrapper) return;
++      
++      const maxImageWidth = 1440;
++      const maxImageHeight = 960;
++      const imageTop = 180;
++      
++      const viewportHeight = window.innerHeight;
++      const viewportWidth = window.innerWidth;
++      const imageTopOffset = imageWrapper.getBoundingClientRect().top + document.documentElement.scrollTop;
++      
++      imageWrapper.style.width = "100%";
++      const imageWrapperHeight = viewportHeight - imageTopOffset;
++
++      imageWrapper.style.height = imageWrapperHeight + 'px';
++      
++      if (viewportWidth > maxImageWidth) {
++        image.style.width = "100%";
++        image.style.top = -imageTop + "px";
++      } else {
++        image.style.width = maxImageWidth + "px";
++        const delta = maxImageWidth - viewportWidth;
++        const left = Math.floor(delta * 0.6);
++        image.style.left = -left + "px";
++        image.style.top = -imageTop + "px";
++      }
++    },
++    
++    // Scroll bio image (from custom.js)
++    scrollBioImage() {
++      const image = document.getElementById("bio-image");
++      const imageWrapper = document.getElementById('bio-image-wrapper');
++      
++      if (!image || !imageWrapper) return;
++      
++      const maxImageHeight = 960;
++      const imageTop = 180;
++      
++      if (imageWrapper.offsetHeight < maxImageHeight - imageTop) {
++        const scrollTop = document.documentElement.scrollTop;
++        image.style.top = Math.min(-imageTop + Math.floor(scrollTop / 3), imageTop) + "px";
++      }
++    },
++    
++    // Scroll to a section on the compositions page
++    scrollToSection(sectionId) {
++      const section = document.getElementById(sectionId);
++      if (section) {
++        section.scrollIntoView({ behavior: 'smooth' });
++      }
++    },
++    
++    // Stop all media players
++    stopMediaPlayers() {
++      const mediaIframes = document.querySelectorAll('iframe[src*="youtube.com"], iframe[src*="soundcloud.com"]');
++      mediaIframes.forEach(iframe => {
++        const src = iframe.src;
++        iframe.src = src; // Reload iframe to stop playback
++      });
++    },
++    
++    // Preload a composition (for hover preloading)
++    preloadComposition(id) {
++      // Only preload if not already in cache and it's a known composition
++      if (!this.cache[id] && !this.loading && knownCompositionIds.includes(id)) {
++        // Check localStorage first if available
++        if (browserFeatures.localStorage) {
++          const cachedContent = localStorage.getItem(`composition_${id}`);
++          if (cachedContent) {
++            this.cache[id] = cachedContent;
++            return;
++          }
++        }
++        
++        // Otherwise fetch it
++        fetch(`compositions/${id}.html`)
++          .then(response => {
++            if (response.ok) {
++              return response.text();
++            }
++            return null;
++          })
++          .then(content => {
++            if (content) {
++              this.cache[id] = content;
++              
++              // Store in localStorage if available
++              if (browserFeatures.localStorage) {
++                try {
++                  localStorage.setItem(`composition_${id}`, content);
++                } catch (e) {
++                  console.warn('LocalStorage quota exceeded, continuing without caching');
++                }
++              }
++            }
++          })
++          .catch(error => {
++            console.error(`Error preloading composition ${id}:`, error);
++          });
++      }
++    },
++    
++    // Clear cache (useful for development)
++    clearCache() {
++      this.cache = {};
++      
++      if (browserFeatures.localStorage) {
++        // Remove all composition cache entries from localStorage
++        Object.keys(localStorage).forEach(key => {
++          if (key.startsWith('composition_')) {
++            localStorage.removeItem(key);
++          }
++        });
++      }
++      
++      console.log('Cache cleared');
++    }
++  },
++  
++  // On Vue mount
++  mounted() {
++    // Initial page routing based on URL hash
++    const hash = window.location.hash.substring(1);
++    
++    if (hash) {
++      // Check if hash is a main page or composition
++      if (mainPageIds.includes(hash)) {
++        this.currentPage = hash;
++      } else if (hash.startsWith('choral-') || hash === 'instrumental') {
++        // If it's a section hash, navigate to compositions page
++        this.currentPage = 'compositions';
++        // Scroll to section after render
++        this.$nextTick(() => {
++          this.scrollToSection(hash);
++        });
++      } else if (knownCompositionIds.includes(hash)) {
++        // If it's a known composition, load it
++        this.loadComposition(hash);
++      } else if (hash === 'bio-text-box') {
++        // If it's the bio text box anchor, stay on bio page and scroll there
++        this.currentPage = 'bio';
++        this.$nextTick(() => {
++          this.scrollToAnchor(hash);
++        });
++      } else {
++        // Default to bio for unknown hashes
++        this.currentPage = 'bio';
++      }
++    } else {
++      // Default to bio page
++      this.currentPage = 'bio';
++    }
++    
++    // Set up event listeners
++    window.addEventListener('resize', this.adjustLayout);
++    window.addEventListener('scroll', this.scrollBioImage);
++    
++    // Handle browser navigation (back/forward)
++    if (browserFeatures.historyAPI) {
++      window.addEventListener('popstate', (event) => {
++        if (event.state && event.state.page) {
++          if (event.state.page === 'composition-detail' && event.state.id) {
++            this.loadComposition(event.state.id);
++          } else {
++            this.currentPage = event.state.page;
++          }
++        } else {
++          // Default to bio if no state (or handle based on current URL)
++          const hash = window.location.hash.substring(1);
++          if (hash) {
++            if (mainPageIds.includes(hash)) {
++              this.currentPage = hash;
++            } else if (hash.startsWith('choral-') || hash === 'instrumental') {
++              this.currentPage = 'compositions';
++              this.$nextTick(() => {
++                this.scrollToSection(hash);
++              });
++            } else if (knownCompositionIds.includes(hash)) {
++              this.loadComposition(hash);
++            } else if (hash === 'bio-text-box') {
++              this.currentPage = 'bio';
++              this.$nextTick(() => {
++                this.scrollToAnchor(hash);
++              });
++            } else {
++              this.currentPage = 'bio';
++            }
++          } else {
++            this.currentPage = 'bio';
++          }
++        }
++        
++        this.$nextTick(() => {
++          this.adjustLayout();
++        });
++      });
++    } else {
++      // Fallback for older browsers
++      window.addEventListener('hashchange', () => {
++        const hash = window.location.hash.substring(1);
++        if (hash) {
++          if (mainPageIds.includes(hash)) {
++            this.currentPage = hash;
++          } else if (hash.startsWith('choral-') || hash === 'instrumental') {
++            this.currentPage = 'compositions';
++            this.$nextTick(() => {
++              this.scrollToSection(hash);
++            });
++          } else if (knownCompositionIds.includes(hash)) {
++            this.loadComposition(hash);
++          } else if (hash === 'bio-text-box') {
++            this.currentPage = 'bio';
++            this.$nextTick(() => {
++              this.scrollToAnchor(hash);
++            });
++          } else {
++            this.currentPage = 'bio';
++          }
++        } else {
++          this.currentPage = 'bio';
++        }
++        
++        this.$nextTick(() => {
++          this.adjustLayout();
++        });
++      });
++    }
++    
++    // Add event listeners to all hash links
++    this.$nextTick(() => {
++      // Get all hash links
++      const hashLinks = document.querySelectorAll('a[href^="#"]');
++      
++      // Add click handlers to process them through our routing system
++      hashLinks.forEach(link => {
++        link.addEventListener('click', this.handleHashLink);
++        
++        // Also add hover listener for preloading compositions
++        const href = link.getAttribute('href');
++        if (href && href.length > 1) {
++          const id = href.substring(1); // Remove the # symbol
++          if (knownCompositionIds.includes(id)) {
++            link.addEventListener('mouseenter', () => {
++              this.preloadComposition(id);
++            });
++          }
++        }
++      });
++      
++      // For links added later (like in composition content)
++      const observer = new MutationObserver(mutations => {
++        mutations.forEach(mutation => {
++          if (mutation.addedNodes) {
++            mutation.addedNodes.forEach(node => {
++              if (node.nodeType === 1) { // Element node
++                const newLinks = node.querySelectorAll('a[href^="#"]');
++                newLinks.forEach(link => {
++                  link.addEventListener('click', this.handleHashLink);
++                  
++                  // Also add hover listener for preloading compositions
++                  const href = link.getAttribute('href');
++                  if (href && href.length > 1) {
++                    const id = href.substring(1); // Remove the # symbol
++                    if (knownCompositionIds.includes(id)) {
++                      link.addEventListener('mouseenter', () => {
++                        this.preloadComposition(id);
++                      });
++                    }
++                  }
++                });
++              }
++            });
++          }
++        });
++      });
++      
++      // Start observing
++      observer.observe(document.body, {
++        childList: true,
++        subtree: true
++      });
++    });
++    
++    // Add CSS for transitions and animations
++    const style = document.createElement('style');
++    style.innerHTML = `
++      .fade-in {
++        animation: fadeIn 0.4s ease-in-out;
++      }
++      @keyframes fadeIn {
++        from { 
++          opacity: 0;
++          transform: translateY(10px);
++        }
++        to { 
++          opacity: 1;
++          transform: translateY(0);
++        }
++      }
++      
++      /* Loading spinner */
++      .loading-spinner {
++        display: inline-block;
++        width: 50px;
++        height: 50px;
++        border: 3px solid rgba(136, 77, 24, 0.2);
++        border-radius: 50%;
++        border-top-color: rgba(136, 77, 24, 0.8);
++        animation: spin 1s ease-in-out infinite;
++      }
++      @keyframes spin {
++        to { transform: rotate(360deg); }
++      }
++      
++      /* Mobile menu transitions */
++      #mobile-menu {
++        transition: transform 0.3s ease-in-out;
++      }
++      
++      /* Hover effects for composition links */
++      .font-['Crimson_Pro'] {
++        transition: color 0.2s ease;
++      }
++      .font-['Crimson_Pro']:hover {
++        color: rgb(136, 77, 24);
++      }
++    `;
++    document.head.appendChild(style);
++    
++    // Update loading spinner style
++    const loadingDiv = document.querySelector('#app > div[v-if="loading"]');
++    if (loadingDiv) {
++      loadingDiv.innerHTML = `
++        <div class="flex flex-col items-center justify-center">
++          <div class="loading-spinner mb-4"></div>
++          <div class="text-yellow-900 text-xl">Loading...</div>
++        </div>
++      `;
++    }
++    
++    // Initial layout adjustment
++    this.adjustLayout();
++    
++    // Expose cache clearing function for development
++    window.clearSiteCache = this.clearCache;
++  }
++}); 
+\ No newline at end of file
+-- 
+2.39.5 (Apple Git-154)
+
